@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>División restauradora — interactiva</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#10151b; --panel:#161d25; --line:#26323d; --ink:#e9e4d8; --ink-dim:#8b98a3;
+    --sub:#e2703a; --add:#4fb0a5; --hold:#c9a15a;
+    --mono:'IBM Plex Mono', ui-monospace, monospace; --sans:'IBM Plex Sans', system-ui, sans-serif;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){ --bg:#f4f1ea; --panel:#ffffff; --line:#ddd6c7; --ink:#1c1a16; --ink-dim:#6c6558; }
+  }
+  :root[data-theme="dark"]{ --bg:#10151b; --panel:#161d25; --line:#26323d; --ink:#e9e4d8; --ink-dim:#8b98a3; }
+
+  *{box-sizing:border-box;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); min-height:100%;}
+  .wrap{max-width:920px; margin:0 auto; padding:2.5rem 1.25rem 4rem;}
+  header{margin-bottom:1.5rem;}
+  .eyebrow{font-family:var(--mono); font-size:.78rem; color:var(--ink-dim); letter-spacing:.02em; margin:0 0 .4rem;}
+  h1{font-weight:600; font-size:1.6rem; line-height:1.25; margin:0 0 .5rem; max-width:36ch;}
+  .sub{color:var(--ink-dim); font-size:.93rem; max-width:60ch; line-height:1.55; margin:0;}
+
+  .setup{
+    margin-top:1.5rem; background:var(--panel); border:1px solid var(--line); border-radius:4px;
+    padding:1.25rem 1.5rem; display:flex; gap:1.25rem; flex-wrap:wrap; align-items:flex-end;
+  }
+  .field{display:flex; flex-direction:column; gap:.4rem;}
+  .field label{font-family:var(--mono); font-size:.72rem; color:var(--ink-dim);}
+  .field input{
+    font-family:var(--mono); font-size:1.05rem; font-weight:600; width:8.5rem;
+    background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:3px; padding:.5rem .6rem;
+  }
+  .field input:focus{outline:2px solid var(--hold); outline-offset:1px; border-color:var(--hold);}
+  .setup button{
+    font-family:var(--sans); font-weight:600; font-size:.9rem; cursor:pointer;
+    background:transparent; border:1px solid var(--hold); color:var(--hold); border-radius:3px; padding:.6rem 1.1rem;
+  }
+  .setup button:hover{background:color-mix(in srgb, var(--hold) 14%, transparent);}
+  .err{width:100%; font-family:var(--mono); font-size:.8rem; color:var(--sub); min-height:1.1em;}
+
+  .op-legend{display:flex; gap:1.25rem; flex-wrap:wrap; margin:1.25rem 0 0; font-family:var(--mono); font-size:.8rem; color:var(--ink-dim);}
+  .op-legend span{display:inline-flex; align-items:center; gap:.4rem;}
+  .dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
+  .dot.sub{background:var(--sub);} .dot.add{background:var(--add);} .dot.hold{background:var(--hold);}
+
+  .stage{margin-top:1.5rem; background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:1.75rem 1.5rem;}
+  .step-tag{font-family:var(--mono); font-size:.78rem; color:var(--ink-dim); display:flex; justify-content:space-between; gap:1rem; margin-bottom:1.1rem;}
+  .step-tag b{color:var(--ink); font-weight:600;}
+
+  .op-badge{display:inline-block; font-family:var(--mono); font-size:.85rem; font-weight:600; padding:.3rem .7rem; border-radius:3px; margin-bottom:1rem; border:1px solid transparent;}
+  .op-badge.sub{color:var(--sub); border-color:var(--sub); background:color-mix(in srgb, var(--sub) 12%, transparent);}
+  .op-badge.add{color:var(--add); border-color:var(--add); background:color-mix(in srgb, var(--add) 12%, transparent);}
+  .op-badge.hold{color:var(--hold); border-color:var(--hold); background:color-mix(in srgb, var(--hold) 12%, transparent);}
+
+  .regs{display:grid; grid-template-columns:repeat(auto-fit, minmax(110px,1fr)); gap:.6rem; margin:1rem 0 1.25rem;}
+  .reg{border:1px solid var(--line); border-radius:3px; padding:.6rem .5rem; text-align:center; background:var(--bg);}
+  .reg .lbl{font-family:var(--mono); font-size:.68rem; color:var(--ink-dim); margin-bottom:.35rem;}
+  .reg .val{font-family:var(--mono); font-size:1.1rem; font-weight:600; letter-spacing:.05em; word-break:break-all;}
+  .reg.changed{border-color:var(--hold);}
+  .reg.changed .val{color:var(--hold);}
+
+  .explain{font-size:.95rem; line-height:1.65; color:var(--ink); margin:0;}
+  .explain .arith{display:block; font-family:var(--mono); font-size:.88rem; color:var(--ink-dim); margin-top:.5rem; word-break:break-all;}
+
+  .controls{display:flex; align-items:center; gap:.6rem; margin-top:1.5rem; flex-wrap:wrap;}
+  button.nav{font-family:var(--sans); font-size:.88rem; font-weight:500; cursor:pointer; background:transparent; color:var(--ink); border:1px solid var(--line); border-radius:3px; padding:.55rem 1rem;}
+  button.nav:hover:not(:disabled){border-color:var(--ink-dim);}
+  button.nav:disabled{opacity:.35; cursor:default;}
+  button.nav.primary{border-color:var(--hold); color:var(--hold);}
+  .progress{font-family:var(--mono); font-size:.78rem; color:var(--ink-dim); margin-left:auto;}
+
+  .rail{display:flex; gap:3px; margin-top:1rem;}
+  .tick{flex:1; height:3px; background:var(--line); border-radius:2px; cursor:pointer;}
+  .tick.done{background:var(--ink-dim);}
+  .tick.now{background:var(--hold);}
+
+  table{width:100%; border-collapse:collapse; margin-top:2.5rem; font-family:var(--mono); font-size:.8rem;}
+  caption{text-align:left; font-family:var(--sans); font-size:.95rem; font-weight:600; margin-bottom:.75rem; color:var(--ink);}
+  th,td{border:1px solid var(--line); padding:.5rem .55rem; text-align:center; word-break:break-all;}
+  th{color:var(--ink-dim); font-weight:500; font-size:.7rem;}
+  td.accion{text-align:left; font-family:var(--sans); font-size:.8rem;}
+  tr.current td{background:color-mix(in srgb, var(--hold) 10%, transparent);}
+  tr[data-newcycle="1"] td{border-top:2px solid var(--ink-dim);}
+
+  footer{margin-top:2.5rem; font-size:.82rem; color:var(--ink-dim); line-height:1.6;}
+
+  @media (max-width:560px){
+    table{font-size:.7rem;} th,td{padding:.4rem .3rem;}
+    .field input{width:100%;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">División restauradora · aritmética binaria</p>
+    <h1>División restauradora, ciclo por ciclo</h1>
+    <p class="sub">Ingresa tu propio divisor y dividendo. El procedimiento respeta el mismo método: resta el divisor, restaura si el resultado es negativo, y desplaza insertando el bit de cociente.</p>
+  </header>
+
+  <section class="setup">
+    <div class="field">
+      <label for="dividendo">DIVIDENDO (decimal)</label>
+      <input type="number" id="dividendo" value="5" min="0" step="1">
+    </div>
+    <div class="field">
+      <label for="divisor">DIVISOR (decimal)</label>
+      <input type="number" id="divisor" value="3" min="1" step="1">
+    </div>
+    <button id="calc">Generar división</button>
+    <div class="err" id="err"></div>
+  </section>
+
+  <div class="op-legend">
+    <span><i class="dot sub"></i>resta</span>
+    <span><i class="dot add"></i>suma / restauración</span>
+    <span><i class="dot hold"></i>desplazamiento</span>
+  </div>
+
+  <section class="stage" id="stage"></section>
+
+  <table id="trace">
+    <caption>Traza completa</caption>
+    <thead><tr><th>Ciclo</th><th>Acción</th><th>Divisor</th><th>A(x)</th><th>R</th><th>R■</th></tr></thead>
+    <tbody id="traceBody"></tbody>
+  </table>
+
+  <footer id="summary"></footer>
+</div>
+
+<script>
+function bitLength(x){ x=Math.max(0,Math.floor(x)); if(x===0) return 1; let n=0; while(x>0){ x = x >>> 1; n++; } return n; }
+function bin(v, width){ const mask=(1<<width)-1; return (v & mask).toString(2).padStart(width,'0'); }
+function splitQ(Q, width){
+  const r = width>1 ? bin(Q >>> 1, width-1) : '';
+  const rp = (Q & 1).toString();
+  return {r, rp};
+}
+function diffFields(prev, cur){
+  const changed = [];
+  if(!prev) return changed;
+  if(prev.divisorBin!==cur.divisorBin) changed.push('divisor');
+  if(prev.axBin!==cur.axBin) changed.push('ax');
+  if(prev.r!==cur.r) changed.push('r');
+  if(prev.rp!==cur.rp) changed.push('rp');
+  return changed;
+}
+
+function generateSteps(dividend, divisor){
+  const width = Math.max(4, bitLength(divisor), bitLength(dividend));
+  if(width > 11){ throw new Error('Usa números más pequeños (el registro quedaría demasiado ancho para mostrarlo).'); }
+  const mask = (1<<width)-1;
+  const fullmask = (1<<(2*width))-1;
+  const M = divisor & mask;
+
+  const steps = [];
+  let A = 0, Q = dividend & mask;
+
+  function push(ciclo, accion, op, arith){
+    const axBin = bin(A, width);
+    const divisorBin = bin(M, width);
+    const {r, rp} = splitQ(Q, width);
+    const cur = {axBin, divisorBin, r, rp};
+    const prev = steps.length ? steps[steps.length-1]._raw : null;
+    const changed = diffFields(prev, cur);
+    steps.push({
+      ciclo, accion, divisor: divisorBin, ax: axBin, r, rp, op, arith, changed, _raw: cur
+    });
+  }
+
+  push('0', 'Valores iniciales', 'hold', null);
+
+  // shift inicial (sin bit de cociente todavía, se inserta 0)
+  (function initialShift(){
+    const combined = ((A & mask) << width) | (Q & mask);
+    let shifted = (combined << 1) & fullmask;
+    A = (shifted >>> width) & mask;
+    Q = shifted & mask;
+  })();
+  push('', 'Desplazan 1 bit a la izquierda a Resto.', 'hold', null);
+
+  for(let c=1; c<=width; c++){
+    const before = A;
+    let sub = A - M;
+    const subBin = bin(sub, width);
+    A = sub;
+    push(String(c), 'Resta Divisor a A(x)', 'sub', `${bin(before,width)} − ${bin(M,width)} = ${subBin}  (${sub<0?'negativo':'no negativo'})`);
+
+    const negative = sub < 0;
+    let q;
+    if(negative){
+      const restored = sub + M;
+      A = restored;
+      q = 0;
+      push('', 'Resto < 0, A(x) + Divisor', 'add', `${subBin} + ${bin(M,width)} = ${bin(restored,width)}`);
+
+      const combined = ((A & mask) << width) | (Q & mask);
+      let shifted = (combined << 1) & fullmask;
+      shifted = (shifted & ~1) | q;
+      A = (shifted >>> width) & mask;
+      Q = shifted & mask;
+      push('', `Desplaza 1 bit Resto, R■ = ${q}`, 'hold', null);
+    } else {
+      q = 1;
+      const combined = ((A & mask) << width) | (Q & mask);
+      let shifted = (combined << 1) & fullmask;
+      shifted = (shifted & ~1) | q;
+      A = (shifted >>> width) & mask;
+      Q = shifted & mask;
+      push('', `Resto ≥ 0, desplaza Resto, R■ = ${q}`, 'add', null);
+    }
+
+    if(c === width){
+      A = (A & mask) >>> 1;
+      push('', 'Desplaza 1 bit a la derecha la parte alta de A(x)', 'hold', null);
+    }
+  }
+
+  const quotient = Q & mask;
+  const remainder = A & mask;
+  return { steps, width, quotient, remainder };
+}
+
+const opLabel = {sub:'RESTA', add:'SUMA / RESTAURA', hold:'DESPLAZAMIENTO'};
+let state = null, i = 0;
+
+const stage = document.getElementById('stage');
+const traceBody = document.getElementById('traceBody');
+const errBox = document.getElementById('err');
+const summary = document.getElementById('summary');
+
+function renderTrace(){
+  traceBody.innerHTML = state.steps.map((s, idx) => `
+    <tr data-idx="${idx}" ${s.ciclo ? 'data-newcycle="1"' : ''}>
+      <td>${s.ciclo}</td><td class="accion">${s.accion}</td>
+      <td>${s.divisor}</td><td>${s.ax}</td><td>${s.r}</td><td>${s.rp}</td>
+    </tr>`).join('');
+  traceBody.querySelectorAll('tr').forEach(tr=>{
+    tr.addEventListener('click', ()=>{ i = parseInt(tr.dataset.idx,10); render(); });
+  });
+}
+
+function render(){
+  const s = state.steps[i];
+  const changed = s.changed || [];
+  stage.innerHTML = `
+    <div class="step-tag"><span>Paso <b>${i+1}</b> de ${state.steps.length}${s.ciclo ? ' · Ciclo ' + s.ciclo : ''}</span><span>${s.accion}</span></div>
+    <span class="op-badge ${s.op}">${opLabel[s.op]}</span>
+    <div class="regs">
+      <div class="reg ${changed.includes('divisor')?'changed':''}"><div class="lbl">DIVISOR</div><div class="val">${s.divisor}</div></div>
+      <div class="reg ${changed.includes('ax')?'changed':''}"><div class="lbl">A(x)</div><div class="val">${s.ax}</div></div>
+      <div class="reg ${changed.includes('r')?'changed':''}"><div class="lbl">R</div><div class="val">${s.r}</div></div>
+      <div class="reg ${changed.includes('rp')?'changed':''}"><div class="lbl">R■</div><div class="val">${s.rp}</div></div>
+    </div>
+    <p class="explain">${explainFor(s)}${s.arith ? `<span class="arith">${s.arith}</span>` : ''}</p>
+    <div class="controls">
+      <button class="nav" id="prev" ${i===0?'disabled':''}>← Anterior</button>
+      <button class="nav primary" id="next" ${i===state.steps.length-1?'disabled':''}>Siguiente →</button>
+      <span class="progress">${i+1} / ${state.steps.length}</span>
+    </div>
+    <div class="rail">${state.steps.map((_,idx)=>`<div class="tick ${idx<i?'done':''} ${idx===i?'now':''}" data-idx="${idx}"></div>`).join('')}</div>
+  `;
+  stage.querySelector('#prev')?.addEventListener('click', ()=>{ if(i>0){ i--; render(); }});
+  stage.querySelector('#next')?.addEventListener('click', ()=>{ if(i<state.steps.length-1){ i++; render(); }});
+  stage.querySelectorAll('.tick').forEach(t=>t.addEventListener('click', ()=>{ i = parseInt(t.dataset.idx,10); render(); }));
+  traceBody.querySelectorAll('tr').forEach(tr=>tr.classList.toggle('current', parseInt(tr.dataset.idx,10)===i));
+  document.querySelector(`tr[data-idx="${i}"]`)?.scrollIntoView({block:'nearest', behavior:'smooth'});
+}
+
+function explainFor(s){
+  switch(s.accion){
+    case 'Valores iniciales':
+      return `Se cargan los registros: el Divisor, el acumulador A(x) en 0, y el Dividendo repartido en R y R■.`;
+    case 'Desplazan 1 bit a la izquierda a Resto.':
+      return `Antes de restar, todo el conjunto A(x):R:R■ se desplaza un bit a la izquierda.`;
+    case 'Resta Divisor a A(x)':
+      return `Se resta el Divisor al acumulador A(x).`;
+    case 'Resto < 0, A(x) + Divisor':
+      return `El resultado fue negativo, así que se restaura sumando de vuelta el Divisor a A(x). El bit de cociente para este ciclo es 0.`;
+    default:
+      if(s.accion.startsWith('Desplaza 1 bit Resto')) return `Se desplaza el conjunto A(x):R:R■ un bit a la izquierda, insertando el bit de cociente decidido en este ciclo.`;
+      if(s.accion.startsWith('Resto ≥ 0')) return `El resultado no fue negativo: no se restaura. El bit de cociente es 1, y se desplaza el conjunto insertando ese bit.`;
+      if(s.accion.startsWith('Desplaza 1 bit a la derecha')) return `Paso final de ajuste: se corrige la posición del residuo desplazando la parte alta de A(x) un bit a la derecha.`;
+      return '';
+  }
+}
+
+function renderSummary(dividend, divisor){
+  summary.innerHTML = `Cociente final: R■:R = <strong>${bin(state.quotient, state.width)}</strong> (${state.quotient}) — Residuo: A(x) = <strong>${bin(state.remainder, state.width)}</strong> (${state.remainder}). Comprobación: ${divisor}×${state.quotient}+${state.remainder}=${divisor*state.quotient+state.remainder}.`;
+}
+
+function run(){
+  const dividendo = parseInt(document.getElementById('dividendo').value, 10);
+  const divisor = parseInt(document.getElementById('divisor').value, 10);
+  errBox.textContent = '';
+  if(Number.isNaN(dividendo) || Number.isNaN(divisor) || dividendo < 0 || divisor < 1){
+    errBox.textContent = 'Ingresa un dividendo ≥ 0 y un divisor ≥ 1.';
+    return;
+  }
+  try{
+    state = generateSteps(dividendo, divisor);
+  }catch(e){
+    errBox.textContent = e.message;
+    return;
+  }
+  i = 0;
+  renderTrace();
+  render();
+  renderSummary(dividendo, divisor);
+}
+
+document.getElementById('calc').addEventListener('click', run);
+document.getElementById('dividendo').addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
+document.getElementById('divisor').addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
+
+run();
+</script>
+</body>
+</html>
